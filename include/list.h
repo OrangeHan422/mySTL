@@ -178,7 +178,8 @@ public:
 
 
     // used to debug
-    friend std::ostream &operator<<(std::ostream&os,const list<Elem>&rhs);
+    template <typename T>
+    friend std::ostream &operator<<(std::ostream&os,const list<T>&rhs);
     void printElements() const
     {
         for (Node *current = m_head_ptr; current; current = current->m_next_ptr)
