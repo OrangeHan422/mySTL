@@ -54,7 +54,32 @@
              [c]                  [c]
     
     delete flow:
-        
+        1.locate position
+        2.handle two situations:
+            2.1 node to be deleted has two children.
+            we find either its next node(normally its right child tree's smallest node)
+            or its previous node(normally its left child tree's bigest node)
+            2.2 node to be deleted has one child.
+            if node to be deleted is red,no operation need
+            if node to be deleted is black,adjust RBTree to make sure no basic rules is broken
+        3. adjust RBTree
+            if node to be deleted is black(2.2)
+            3.1 if brother node is red.
+            color brother to black,and father to red,rotate father(left child left rotate,right...)
+            this operation activates some of situations below
+            3.2 brother node is lack,and brother's two child are both black
+            color brother to red,and adjust object to father
+            if node's color is red now,color it to black and we are done
+            3.3 brother node is black,brother's left child is red and right child is black
+            color brother to red,brother's left child to black
+            right rotate brother node
+            come to 3.4
+            3.4 brother node is black,and brother's right child is red
+            color brother to father's color,father to black,brother's right child to black
+            left rotate father
+            done
+    
+
     
     Why RBTree:O(log(n)) both time and space complexity
 */
@@ -68,7 +93,56 @@ enum class Color { RED,BLACK };
 
 template <typename Key,typename Value>
 class RBTree{
+public:
+    RBTree()
+    :m_root(nullptr)
+    ,m_size(0)
+    ,m_NIL(new Node())
+    {
+        m_NIL->m_color = Color::BLACK;
+    }
 
+    ~RBTree()
+    {
+        clear();
+    }
+
+    void insert(const Key& key,const Value& value){
+        insertNode(key,value);
+    }
+
+    void remove(const Key& key){
+        Node* dood = lookup(key);
+        if(dood != nullptr){
+            deleteNode(dood);
+            m_size--;
+        }
+    }
+
+    Value* at(const Key& key){
+        auto res = lookup(key);
+        if(res != nullptr){
+            return &res->m_value;
+        }
+        return nullptr;
+    }
+
+    int size(){
+        return m_size;
+    }
+
+    bool empty(){
+        return m_size == 0;
+    }
+
+    void clear(){
+        deleteTree(m_root);
+        m_size = 0;
+    }
+
+    void print(){
+        inorderTraversal(m_root);
+    }
 private:
     struct Node{
         Key m_key;
@@ -132,7 +206,7 @@ private:
         // if l_son had a right child,it would become node's left child 
         node->m_left_ptr = l_son->m_right_ptr;//either null or node
         if(l_son->m_right_ptr){
-            l_son->m_right_ptr->parent = node;
+            l_son->m_right_ptr->m_parent_ptr = node;
         }
         
         //node's left child l_son become node's father,node become l_son's right child
@@ -159,7 +233,7 @@ private:
 
         node->m_right_ptr = r_son->m_left_ptr;
         if(r_son->m_left_ptr){
-            r_son->m_left_ptr->parent = node;
+            r_son->m_left_ptr->m_parent_ptr = node;
         }
         
         r_son->m_parent_ptr = node->m_parent_ptr;
@@ -225,7 +299,7 @@ private:
                     }
                     // 3.2.2.2 color object's father(might be changed in last step) to black,color grandpa to red
                     target->m_parent_ptr->m_color = BLACK;
-                    target->m_parent_ptr->m_parent_ptr = RED;
+                    target->m_parent_ptr->m_parent_ptr->m_color = RED;
                     // 3.2.2.3 left rotate grandpa
                     leftRotate(target->m_parent_ptr->m_parent_ptr);
                 }
@@ -236,10 +310,11 @@ private:
     }
 
     void insertNode(const Key& key,const Value& value){
+        
         using enum Color;
-        Node* newNode(key,value,Red);
+        Node* newNode = new Node(key,value,RED);
         Node* parent{nullptr};
-        Node* cmpNode = root;
+        Node* cmpNode = m_root;
 
         //locate position to insert(newNode's parent)
         while(cmpNode){
@@ -258,9 +333,10 @@ private:
         //increase size
         ++m_size;
 
+
         //set newNode's parent
         newNode->m_parent_ptr = parent;
-        if(parent){
+        if(!parent){
             m_root = newNode;
         }else if(newNode->m_key < parent->m_key){
             parent->m_left_ptr = newNode;
@@ -303,8 +379,226 @@ private:
         return node;
     }
 
-    void removeHelper(Node* node){
+    // used by remoceHelper
+    Color getColor(Node* node){
+        if(node == nullptr){
+            return Color::BLACK;
+        }
+        return node->m_color;
+    }
+    // used by remoceHelper
+    void setColor(Node *node, Color color) {
+        if (node == nullptr) {
+            return;
+        }
+        node->m_color = color;
+    }
 
+    // used to fix up RBTree,when node to be deleted is black(2.2),used by removeNode
+    void removeHelper(Node* node){
+        using enum Color;
+        // if node is NIL and has no parent,which means it's the only node,just return
+        if(node == m_NIL && node->m_parent_ptr == nullptr){
+            return;
+        }
+        // we need to adjust RBTree from botom to top
+        while(node != m_root){
+            // if node is father's left child
+            if(node == node->m_parent_ptr->m_left_ptr){
+                // brother node
+                Node* brother = node->m_parent_ptr->m_right_ptr;
+                //3.1 if brother node is red.
+                if(getColor(brother) == RED){
+                    // color brother to black,and father to red,rotate father
+                    setColor(brother,BLACK);
+                    setColor(node->m_parent_ptr,RED);
+                    leftRotate(node->m_parent_ptr);
+                    // remember update brother after rotate
+                    brother = node->m_parent_ptr->m_right_ptr;
+                }
+                
+                //3.2 brother node is lack,and brother's two child are both black
+                //after 3.1 ,now brother must be black
+                if(getColor(brother->m_left_ptr) == BLACK &&
+                getColor(brother->m_right_ptr) == BLACK){
+                    // color brother to red,and adjust object to father
+                    setColor(brother,RED);
+                    node = node->m_parent_ptr;
+                    // if node's color is red now,color it to black and we are done
+                    if(node->m_color == RED){
+                        node->m_color = BLACK;
+                        node = m_root;
+                    }
+                }else{
+                    // 3.3 brother node is black,brother's left child is red and right child is black
+                    
+                    if(getColor(brother->m_right_ptr) == BLACK){
+                        //color brother to red,brother's left child to black
+                        setColor(brother->m_left_ptr,BLACK);
+                        setColor(brother,RED);
+                        //right rotate brother node
+                        rightRotate(brother);
+                        //remember to update brother after rotate
+                        brother = node->m_parent_ptr->m_right_ptr;
+                    }
+                    //come to 3.4 brother node is black,and brother's right child is red
+                    // color brother to father's color,father to black,brother's right child to black
+                    setColor(brother,getColor(node->m_parent_ptr));
+                    setColor(node->m_parent_ptr,BLACK);
+                    setColor(brother->m_right_ptr,BLACK);
+                    // left rotate father
+                    leftRotate(node->m_parent_ptr);
+                    //done
+                    node = m_root;
+                }//end of 3.x
+            }else{
+                //  if node is father's left child
+                // brother node
+                Node* brother = node->m_parent_ptr->m_left_ptr;
+                if(getColor(brother) == RED){
+                    setColor(brother,BLACK);
+                    setColor(node->m_parent_ptr,RED);
+                    rightRotate(node->m_parent_ptr);
+                    brother = node->m_parent_ptr->m_left_ptr;
+                }
+                
+                if(getColor(brother->m_right_ptr) == BLACK &&
+                getColor(brother->m_left_ptr) == BLACK){
+                    setColor(brother,RED);
+                    node = node->m_parent_ptr;
+                    if(node->m_color == RED){
+                        node->m_color = BLACK;
+                        node = m_root;
+                    }
+                }else{                    
+                    if(getColor(brother->m_left_ptr) == BLACK){
+                        setColor(brother->m_right_ptr,BLACK);
+                        setColor(brother,RED);
+                        leftRotate(brother);
+                        brother = node->m_parent_ptr->m_left_ptr;
+                    }
+                    setColor(brother,getColor(node->m_parent_ptr));
+                    setColor(node->m_parent_ptr,BLACK);
+                    setColor(brother->m_left_ptr,BLACK);
+                    leftRotate(node->m_parent_ptr);
+                    node = m_root;
+                }//end of 3.x
+            }// end of 3
+        }// end of while(node != m_root)
+        //make sure current node is black
+        setColor(node,BLACK);
+    }
+
+    void disconnectNIL(){
+        if(m_NIL == nullptr){
+            return;
+        }
+        if(m_NIL->m_parent_ptr != nullptr){
+            if(m_NIL == m_NIL->m_parent_ptr->m_left_ptr){
+                m_NIL->m_parent_ptr->m_left_ptr = nullptr;
+            }else{
+                m_NIL->m_parent_ptr->m_right_ptr = nullptr;
+            }
+        }
+    }
+
+    void deleteNode(Node* deleteNode){
+        using enum Color;
+        Node* replace = deleteNode; // init replaceNode to deleteNode
+        Node* child = nullptr;      // deleteNode's child
+        Node* parentRP;             // replaceNode's parent
+        Color origColor = deleteNode->m_color;  //record orignal color of deleteNode
+
+        // 2.2 node to be deleted has one child.
+        if(!deleteNode->m_left_ptr){
+            replace = deleteNode->m_right_ptr;
+            parentRP = deleteNode->m_parent_ptr;
+            origColor = getColor(replace);
+            replaceNode(deleteNode,replace);
+        }else if(!deleteNode->m_right_ptr){
+            replace = deleteNode->m_left_ptr;
+            parentRP = deleteNode->m_parent_ptr;
+            origColor = getColor(replace);
+            replaceNode(deleteNode,replace);
+        }else
+        {
+            replace = findMinimumNode(deleteNode->m_right_ptr);
+            origColor = replace->m_color;
+            if(replace != deleteNode->m_right_ptr){
+                parentRP = replace->m_parent_ptr;
+                child = replace->m_right_ptr;
+                parentRP->m_left_ptr = child;
+                if(child != nullptr){
+                    child->m_parent_ptr = parentRP;
+                }
+                deleteNode->m_left_ptr->m_parent_ptr = replace;
+                deleteNode->m_right_ptr->m_parent_ptr = replace;
+                replace->m_left_ptr = deleteNode->m_left_ptr;
+                replace->m_right_ptr = deleteNode->m_right_ptr;
+                if(deleteNode->m_parent_ptr != nullptr){
+                    if(deleteNode == deleteNode->m_parent_ptr->m_left_ptr){
+                        deleteNode->m_parent_ptr->m_left_ptr = replace;
+                        replace->m_parent_ptr = deleteNode->m_parent_ptr;
+                    }else{
+                        deleteNode->m_parent_ptr->m_right_ptr = replace;
+                        replace->m_parent_ptr = deleteNode->m_parent_ptr;
+                    }
+                }else{
+                    m_root = replace;
+                    m_root->m_parent_ptr = nullptr;
+                }
+            }else{
+                child = replace->m_right_ptr;
+                replace->m_left_ptr = deleteNode->m_left_ptr;
+                deleteNode->m_left_ptr->m_parent_ptr = replace;
+                if(deleteNode->m_parent_ptr != nullptr){
+                    if(deleteNode == deleteNode->m_parent_ptr->m_left_ptr){
+                        deleteNode->m_parent_ptr->m_left_ptr = replace;
+                        replace->m_parent_ptr = deleteNode->m_parent_ptr;
+                    }else{
+                        deleteNode->m_parent_ptr->m_right_ptr = replace;
+                        replace->m_parent_ptr = deleteNode->m_parent_ptr;
+                    }
+                }else{
+                    m_root = replace;
+                    m_root->m_parent_ptr = nullptr;
+                }
+                parentRP = replace;
+            }
+        }
+
+        if(replace != nullptr){
+            replace->m_color = deleteNode->m_color;
+        }else{
+            origColor = deleteNode->m_color;
+        }
+
+        if(origColor == BLACK){
+            if(child != nullptr){
+                removeHelper(child);
+            }else{
+                m_NIL->m_parent_ptr = parentRP;
+                if(parentRP != nullptr){
+                    if(parentRP->m_left_ptr == nullptr){
+                        parentRP->m_left_ptr = m_NIL;
+                    }else{
+                        parentRP->m_right_ptr = m_NIL;
+                    }
+                }
+                removeHelper(m_NIL);
+                disconnectNIL();
+            }
+        }
+
+        delete deleteNode;
+    }
+
+    void deleteTree(Node *node){
+        if(node){
+            deleteTree(node->m_left_ptr);
+            deleteTree(node->m_right_ptr);
+            delete node;
+        }
     }
 };//class RBTree
 }//namespace myStd
