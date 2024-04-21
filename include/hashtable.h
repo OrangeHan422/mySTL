@@ -42,17 +42,21 @@ public:
         size_t index = _hash(key);
         auto& bucket = m_buckets[index];
         // erase key if key was found
-        auto it = std::find(std::begin(bucket),std::end(bucket),key);
+        auto it = std::find(bucket.begin(),bucket.end(),key);
         if(it != bucket.end()){
             bucket.erase(it);
             m_num_of_elements--;
         }
     }
 
+    void clear(){
+        _cleanup();
+    }
+
     Value* find(const Key& key){
         size_t index = _hash(key);
         auto& bucket = m_buckets[index];
-        auto it = std::find(std::begin(bucket),std::end(bucket),key);
+        auto it = std::find(bucket.begin(),bucket.end(),key);
         if(it != bucket.end()){
             return &it->m_value;
         }
@@ -89,7 +93,7 @@ private:
         bool operator!=(const HashNode& rhs) { return m_key != rhs.m_key; }
         bool operator<(const HashNode& rhs) { return m_key < rhs.m_key; }
         bool operator>(const HashNode& rhs) { return m_key > rhs.m_key; }
-        bool operator==(const Key& key) { return m_key != key; }
+        bool operator==(const Key& key) { return m_key == key; }
 
         void print() const{
             std::cout << m_key << " " << m_value << " ";

@@ -83,7 +83,7 @@
     
     Why RBTree:O(log(n)) both time and space complexity
 */
-
+#pragma once
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -104,7 +104,10 @@ public:
 
     ~RBTree()
     {
-        clear();
+        if(m_size != 0){
+            clear();
+        }
+        
     }
 
     void insert(const Key& key,const Value& value){
@@ -598,6 +601,7 @@ private:
             deleteTree(node->m_left_ptr);
             deleteTree(node->m_right_ptr);
             delete node;
+            node = nullptr;
         }
     }
 };//class RBTree
